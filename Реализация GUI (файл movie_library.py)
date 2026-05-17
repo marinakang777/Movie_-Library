@@ -42,10 +42,9 @@ class MovieLibraryApp:
         ttk.Button(root, text="Применить фильтр", command=self.apply_filter).grid(row=7, column=0, columnspan=2, pady=10)
 
         # --- Таблица фильмов ---
-        self.tree = ttk.Treeview(root, columns=(1,2,3), show='headings', height=8)
+        self.tree = ttk.Treeview(root, columns=(1, 2), show='headings', height=8)
         self.tree.heading(1, text="Название")
-        self.tree.heading(2, text="Жанр")
-        self.tree.heading(3, text="Год / Рейтинг")
+        self.tree.heading(2, text="Жанр / Год / Рейтинг")
         self.tree.grid(row=8, columnspan=2)
 
         # --- Кнопки сохранения/загрузки ---
@@ -81,6 +80,11 @@ class MovieLibraryApp:
             messagebox.showerror("Ошибка", "Рейтинг должен быть в диапазоне от 0 до 10!")
             return
 
+         # Проверка на дубликаты
+         if any(m["title"] == title and m["genre"] == genre and m["year"] == year for m in self.movies):
+             messagebox.showwarning("Дубликат", "Такой фильм уже есть в библиотеке!")
+             return
+
          # Добавление фильма в список и обновление таблицы
          self.movies.append({
              "title": title,
@@ -90,18 +94,28 @@ class MovieLibraryApp:
          })
          self.update_tree()
 
+         # Очистка полей ввода
+         self.title_entry.delete(0, tk.END)
+         self.genre_entry.delete(0, tk.END)
+         self.year_entry.delete(0, tk.END)
+         self.rating_entry.delete(0, tk.END)
+
     def update_tree(self):
          for i in self.tree.get_children():
              self.tree.delete(i)
          for movie in self.movies:
-             self.tree.insert("", "end", values=(movie["title"], movie["genre"], f"{movie['year']} / {movie['rating']}"))
+             self.tree.insert("", "end", values=(movie["title"], f"{movie['genre']} / {movie['year']} / {movie['rating']}"))
 
     def apply_filter(self):
          genre_filter = self.filter_genre.get().strip().lower()
          
-         try:
-             year_filter = int(self.filter_year.get().strip())
-         except ValueError:
+         year_filter_text = self.filter_year.get().strip()
+         if year_filter_text:
+             if not year_filter_text.isdigit():
+                 messagebox.showerror("Ошибка", "Фильтр по году должен быть числом!")
+                 return
+             year_filter = int(year_filter_text)
+         else:
              year_filter = None
 
          filtered_movies = self.movies.copy()
@@ -115,23 +129,32 @@ class MovieLibraryApp:
          for i in self.tree.get_children():
              self.tree.delete(i)
          for movie in filtered_movies:
-             self.tree.insert("", "end", values=(movie["title"], movie["genre"], f"{movie['year']} / {movie['rating']}"))
+             self.tree.insert("", "end", values=(movie["title"], f"{movie['genre']} / {movie['year']} / {movie['rating']}"))
 
     def save_movies(self):
-         with open("movies.json", "w", encoding="utf-8") as f:
-             json.dump(self.movies, f, ensure_ascii=False, indent=4)
-         messagebox.showinfo("Успех", "Данные сохранены в movies.json")
+         try:
+             with open("movies.json", "w", encoding="utf-8") as f:
+                 json.dump(self.movies, f, ensure_ascii=False, indent=4)
+             messagebox.showinfo("Успех", "Данные сохранены в movies.json")
+         except Exception as e:
+             messagebox.showerror("Ошибка", f"Не удалось сохранить файл: {e}")
 
     def load_movies(self):
-         if os.path.exists("movies.json"):
-             with open("movies.json", "r", encoding="utf-8") as f:
-                 self.movies = json.load(f)
-                 self.update_tree()
+         try:
+             if os.path.exists("movies.json"):
+                 with open("movies.json", "r", encoding="utf-8") as f:
+                     self.movies = json.load(f)
+                     self.update_tree()
+         except Exception as e:
+             messagebox.showerror("Ошибка", f"Не удалось загрузить данные: {e}")
 
     def load_movies_gui(self):
-         if os.path.exists("movies.json"):
-             self.load_movies()
-             messagebox.showinfo("Успех", "Данные загружены из movies.json")
+         try:
+             if os.path.exists("movies.json"):
+                 self.load_movies()
+                 messagebox.showinfo("Успех", "Данные загружены из movies.json")
+         except Exception as e:
+             messagebox.showerror("Ошибка", f"Не удалось загрузить данные: {e}")
 
 if __name__ == "__main__":
     root = tk.Tk()
